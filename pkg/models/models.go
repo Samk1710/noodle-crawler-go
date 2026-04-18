@@ -6,3 +6,15 @@ type Page struct {
 	Body       string
 	Links      []string
 }
+
+type Job struct {
+	URL   string
+	Depth int
+}
+
+type Result struct {
+	URL        string
+	StatusCode int
+	Links      []string
+	Err        error
+}
