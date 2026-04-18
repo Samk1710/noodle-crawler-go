@@ -12,8 +12,9 @@ func StartWorker(id int, jobs <-chan models.Job, results chan<- models.Result) {
 
 		if err != nil {
 			results <- models.Result{
-				URL: job.URL,
-				Err: err,
+				URL:   job.URL,
+				Err:   err,
+				Depth: job.Depth,
 			}
 			continue
 		}
@@ -25,6 +26,7 @@ func StartWorker(id int, jobs <-chan models.Job, results chan<- models.Result) {
 			StatusCode: status,
 			Links:      links,
 			Err:        err,
+			Depth:      job.Depth,
 		}
 	}
 }
