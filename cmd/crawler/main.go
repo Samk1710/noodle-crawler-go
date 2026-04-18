@@ -6,6 +6,7 @@ import (
 
 	"noodle-crawler-go/internal/worker"
 	"noodle-crawler-go/pkg/models"
+	"noodle-crawler-go/pkg/utils"
 )
 
 func main() {
@@ -47,15 +48,20 @@ func main() {
 		// enqueue new links
 		for _, link := range result.Links {
 
-			if visited[link] {
+			normalized, err := utils.NormalizeURL(result.URL, link)
+			if err != nil || normalized == "" {
 				continue
 			}
 
-			visited[link] = true
+			if visited[normalized] {
+				continue
+			}
+
+			visited[normalized] = true
 
 			jobs <- models.Job{
-				URL:   link,
-				Depth: 1, // simplified for now
+				URL:   normalized,
+				Depth: 1,
 			}
 		}
 
