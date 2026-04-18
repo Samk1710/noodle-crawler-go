@@ -16,5 +16,6 @@ type Result struct {
 	URL        string
 	StatusCode int
 	Links      []string
+	Depth      int
 	Err        error
 }
