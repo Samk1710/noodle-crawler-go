@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"noodle-crawler-go/internal/worker"
 	"noodle-crawler-go/pkg/models"
@@ -22,7 +23,10 @@ func main() {
 
 	visited := make(map[string]bool)
 
+	var wg sync.WaitGroup
+
 	workerCount := 5
+	maxDepth := 2
 
 	// start workers
 	for i := 0; i < workerCount; i++ {
@@ -30,44 +34,65 @@ func main() {
 	}
 
 	// seed first job
+	wg.Add(1)
 	jobs <- models.Job{URL: startURL, Depth: 0}
 	visited[startURL] = true
 
-	// maxDepth := 2
+	// result processor
+	go func() {
+		for result := range results {
 
-	for {
-		result := <-results
-
-		if result.Err != nil {
-			fmt.Println("Error:", result.URL, result.Err)
-			continue
-		}
-
-		fmt.Println("Visited:", result.URL)
-
-		// enqueue new links
-		for _, link := range result.Links {
-
-			normalized, err := utils.NormalizeURL(result.URL, link)
-			if err != nil || normalized == "" {
+			if result.Err != nil {
+				fmt.Println("Error:", result.URL, result.Err)
+				wg.Done()
 				continue
 			}
 
-			if visited[normalized] {
+			fmt.Println("Visited:", result.URL)
+
+			// find depth of this URL
+			currentDepth := 0 // fallback
+
+			if currentDepth >= maxDepth {
+				wg.Done()
 				continue
 			}
 
-			visited[normalized] = true
+			for _, link := range result.Links {
 
-			jobs <- models.Job{
-				URL:   normalized,
-				Depth: 1,
+				normalized, err := utils.NormalizeURL(result.URL, link)
+				if err != nil || normalized == "" {
+					continue
+				}
+
+				// domain restriction
+				if !utils.IsSameDomain(startURL, normalized) {
+					continue
+				}
+
+				if visited[normalized] {
+					continue
+				}
+
+				visited[normalized] = true
+
+				wg.Add(1)
+				jobs <- models.Job{
+					URL:   normalized,
+					Depth: currentDepth + 1,
+				}
 			}
-		}
 
-		// stop condition (temporary)
-		if len(visited) > 20 {
-			break
+			wg.Done()
 		}
-	}
+	}()
+
+	// wait until all jobs are done
+	wg.Wait()
+
+	// cleanup
+	close(jobs)
+	close(results)
+
+	fmt.Println("Crawl finished.")
 }
