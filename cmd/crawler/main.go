@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"noodle-crawler-go/internal/fetcher"
-	"noodle-crawler-go/internal/parser"
+	"noodle-crawler-go/internal/worker"
+	"noodle-crawler-go/pkg/models"
 )
 
 func main() {
@@ -14,25 +14,54 @@ func main() {
 		return
 	}
 
-	url := os.Args[1]
+	startURL := os.Args[1]
 
-	body, status, err := fetcher.Fetch(url)
-	if err != nil {
-		fmt.Println("Fetch error:", err)
-		return
+	jobs := make(chan models.Job, 100)
+	results := make(chan models.Result, 100)
+
+	visited := make(map[string]bool)
+
+	workerCount := 5
+
+	// start workers
+	for i := 0; i < workerCount; i++ {
+		go worker.StartWorker(i, jobs, results)
 	}
 
-	links, err := parser.ExtractLinks(body)
-	if err != nil {
-		fmt.Println("Parse error:", err)
-		return
-	}
+	// seed first job
+	jobs <- models.Job{URL: startURL, Depth: 0}
+	visited[startURL] = true
 
-	fmt.Println("URL:", url)
-	fmt.Println("Status:", status)
-	fmt.Println("Links found:", len(links))
+	// maxDepth := 2
 
-	for _, link := range links {
-		fmt.Println("-", link)
+	for {
+		result := <-results
+
+		if result.Err != nil {
+			fmt.Println("Error:", result.URL, result.Err)
+			continue
+		}
+
+		fmt.Println("Visited:", result.URL)
+
+		// enqueue new links
+		for _, link := range result.Links {
+
+			if visited[link] {
+				continue
+			}
+
+			visited[link] = true
+
+			jobs <- models.Job{
+				URL:   link,
+				Depth: 1, // simplified for now
+			}
+		}
+
+		// stop condition (temporary)
+		if len(visited) > 20 {
+			break
+		}
 	}
 }
