@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
 
+	"noodle-crawler-go/internal/scheduler"
 	"noodle-crawler-go/internal/worker"
 	"noodle-crawler-go/pkg/models"
 	"noodle-crawler-go/pkg/utils"
@@ -21,7 +23,7 @@ func main() {
 	jobs := make(chan models.Job, 100)
 	results := make(chan models.Result, 100)
 
-	visited := make(map[string]bool)
+	visited := scheduler.NewVisited()
 
 	var wg sync.WaitGroup
 
@@ -33,14 +35,17 @@ func main() {
 		go worker.StartWorker(i, jobs, results)
 	}
 
-	// seed first job
-	wg.Add(1)
-	jobs <- models.Job{URL: startURL, Depth: 0}
-	visited[startURL] = true
+	// aggregation storage
+	var allResults []models.Result
+	var mu sync.Mutex
 
-	// result processor
+	// result processor (aggregator)
 	go func() {
 		for result := range results {
+
+			mu.Lock()
+			allResults = append(allResults, result)
+			mu.Unlock()
 
 			if result.Err != nil {
 				fmt.Println("Error:", result.URL, result.Err)
@@ -50,10 +55,7 @@ func main() {
 
 			fmt.Println("Visited:", result.URL)
 
-			// find depth of this URL
-			currentDepth := 0 // fallback
-
-			if currentDepth >= maxDepth {
+			if result.Depth >= maxDepth {
 				wg.Done()
 				continue
 			}
@@ -65,21 +67,18 @@ func main() {
 					continue
 				}
 
-				// domain restriction
 				if !utils.IsSameDomain(startURL, normalized) {
 					continue
 				}
 
-				if visited[normalized] {
+				if !visited.Add(normalized) {
 					continue
 				}
-
-				visited[normalized] = true
 
 				wg.Add(1)
 				jobs <- models.Job{
 					URL:   normalized,
-					Depth: currentDepth + 1,
+					Depth: result.Depth + 1,
 				}
 			}
 
@@ -87,12 +86,18 @@ func main() {
 		}
 	}()
 
-	// wait until all jobs are done
+	// seed
+	visited.Add(startURL)
+	wg.Add(1)
+	jobs <- models.Job{URL: startURL, Depth: 0}
+
+	// wait for crawl completion
 	wg.Wait()
 
-	// cleanup
 	close(jobs)
 	close(results)
 
-	fmt.Println("Crawl finished.")
+	// output JSON
+	output, _ := json.MarshalIndent(allResults, "", "  ")
+	fmt.Println(string(output))
 }
