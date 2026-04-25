@@ -1,9 +1,9 @@
 package worker
 
 import (
-	"noodle-crawler-go/internal/fetcher"
-	"noodle-crawler-go/internal/parser"
-	"noodle-crawler-go/pkg/models"
+	"github.com/Samk1710/noodle-crawler-go/internal/fetcher"
+	"github.com/Samk1710/noodle-crawler-go/internal/parser"
+	"github.com/Samk1710/noodle-crawler-go/pkg/models"
 )
 
 func StartWorker(id int, jobs <-chan models.Job, results chan<- models.Result) {

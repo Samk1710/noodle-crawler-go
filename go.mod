@@ -1,4 +1,4 @@
-module noodle-crawler-go
+module github.com/Samk1710/noodle-crawler-go
 
 go 1.25.0
 

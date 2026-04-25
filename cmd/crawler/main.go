@@ -6,10 +6,10 @@ import (
 	"os"
 	"sync"
 
-	"noodle-crawler-go/internal/scheduler"
-	"noodle-crawler-go/internal/worker"
-	"noodle-crawler-go/pkg/models"
-	"noodle-crawler-go/pkg/utils"
+	"github.com/Samk1710/noodle-crawler-go/internal/scheduler"
+	"github.com/Samk1710/noodle-crawler-go/internal/worker"
+	"github.com/Samk1710/noodle-crawler-go/pkg/models"
+	"github.com/Samk1710/noodle-crawler-go/pkg/utils"
 )
 
 func main() {
